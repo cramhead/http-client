@@ -1,0 +1,17 @@
+
+id = "http-client"
+name = "Http Client"
+version = "0.0.3"
+schema_version = 1
+authors = ["Marc d'Entremont <cramhead@gmail.com>"]
+description = "Sends requests to APIs via HTTP"
+repository = "https://github.com/your-name/my-zed-extension"
+
+
+[language_servers.http-lsp]
+name = "HTTP LSP"
+language = "http"
+
+[grammars.http]
+repository = "http://github.com/rest-nvim/tree-sitter-http"
+commit = "e061995f0caf2fa30f68fa1fdf2c08bcbd4629a8"

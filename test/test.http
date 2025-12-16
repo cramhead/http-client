@@ -1,0 +1,57 @@
+
+### Simple GET Request
+GET https://jsonplaceholder.typicode.com/posts/1
+Accept: application/json
+Cache-Control: no-cache
+
+###
+
+### POST Request with JSON Body
+POST https://jsonplaceholder.typicode.com/posts
+Content-Type: application/json; charset=UTF-8
+Authorization: Bearer your_access_token_here
+
+{
+    "title": "foo",
+    "body": "bar",
+    "userId": 1
+}
+###
+
+### PUT Request with URL Parameters and Headers
+PUT https://jsonplaceholder.typicode.com/posts/1
+Content-Type: application/json
+X-Custom-Header: 12345
+
+{
+    "id": 1,
+    "title": "foo",
+    "body": "bar",
+    "userId": 1
+}
+
+###
+
+### DELETE Request
+DELETE https://jsonplaceholder.typicode.com/posts/1
+Authorization: Bearer your_access_token_here
+
+###
+
+### HEAD Request
+HEAD http://example.com/api/users
+Accept: application/json
+
+###
+
+
+### PATCH Request with XML Body
+PATCH http://example.com/api/users/123
+Content-Type: application/xml
+Authorization: Bearer your_access_token_here
+
+<?xml version="1.0" encoding="UTF-8"?>
+<user>
+  <email>update@example.com</email>
+  <status>active</status>
+</user>
