@@ -84,9 +84,8 @@ fn download_and_cache_binary(
     );
 
     // Get latest release from GitHub
-    // TODO: Update with actual GitHub repository once created
     let release = zed::latest_github_release(
-        "your-username/http-client",
+        "cramhead/http-client",
         zed::GithubReleaseOptions {
             require_assets: true,
             pre_release: false,
