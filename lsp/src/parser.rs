@@ -12,16 +12,16 @@ pub struct HttpRequest {
 pub fn parse_http_file(content: &str) -> Vec<HttpRequest> {
     let mut requests = Vec::new();
     let lines: Vec<&str> = content.lines().collect();
-    let valid_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"];
+    let _valid_methods = ["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"];
 
-    let mut current_block_start: Option<usize> = None;
+    let mut current_block_start: Option<usize> = Some(0);
 
     for (line_idx, line) in lines.iter().enumerate() {
         let trimmed = line.trim();
 
         // Check if this line starts with ###
         if trimmed.starts_with("###") {
-            // If we have a current block, parse it
+            // Parse the current block up to this delimiter
             if let Some(start) = current_block_start {
                 if let Some(request) = parse_block_lines(&lines, start, line_idx) {
                     requests.push(request);
@@ -35,11 +35,6 @@ pub fn parse_http_file(content: &str) -> Vec<HttpRequest> {
     // Don't forget the last block
     if let Some(start) = current_block_start {
         if let Some(request) = parse_block_lines(&lines, start, lines.len()) {
-            requests.push(request);
-        }
-    } else if !lines.is_empty() {
-        // No ### delimiters, parse entire file as one block
-        if let Some(request) = parse_block_lines(&lines, 0, lines.len()) {
             requests.push(request);
         }
     }
@@ -118,9 +113,35 @@ fn parse_block_lines(lines: &[&str], start_idx: usize, end_idx: usize) -> Option
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
+
+    #[rstest]
+    #[case("GET http://example.com/api", "GET", "http://example.com/api", 0, None)]
+    #[case("get http://example.com/api", "GET", "http://example.com/api", 0, None)]
+    #[case("POST http://example.com/api", "POST", "http://example.com/api", 0, None)]
+    #[case("PUT http://example.com/api", "PUT", "http://example.com/api", 0, None)]
+    #[case("DELETE http://example.com/api", "DELETE", "http://example.com/api", 0, None)]
+    #[case("PATCH http://example.com/api", "PATCH", "http://example.com/api", 0, None)]
+    #[case("HEAD http://example.com/api", "HEAD", "http://example.com/api", 0, None)]
+    #[case("OPTIONS http://example.com/api", "OPTIONS", "http://example.com/api", 0, None)]
+    fn test_parse_http_methods(
+        #[case] content: &str,
+        #[case] expected_method: &str,
+        #[case] expected_url: &str,
+        #[case] expected_headers_count: usize,
+        #[case] expected_body: Option<&str>,
+    ) {
+        let requests = parse_http_file(content);
+
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].method, expected_method);
+        assert_eq!(requests[0].url, expected_url);
+        assert_eq!(requests[0].headers.len(), expected_headers_count);
+        assert_eq!(requests[0].body.as_deref(), expected_body);
+    }
 
     #[test]
-    fn test_parse_simple_get() {
+    fn test_parse_simple_get_with_header() {
         let content = "GET http://example.com/api\nAccept: application/json";
         let requests = parse_http_file(content);
 
@@ -130,18 +151,53 @@ mod tests {
         assert_eq!(requests[0].headers.get("Accept"), Some(&"application/json".to_string()));
     }
 
-    #[test]
-    fn test_parse_post_with_body() {
-        let content = r#"POST http://example.com/api
+    #[rstest]
+    #[case(
+        r#"POST http://example.com/api
 Content-Type: application/json
 
-{"name": "test"}"#;
+{"name": "test"}"#,
+        "POST",
+        r#"{"name": "test"}"#
+    )]
+    #[case(
+        r#"POST http://example.com/api
+Content-Type: application/json
 
+{
+  "name": "John",
+  "email": "john@example.com"
+}"#,
+        "POST",
+        r#"{
+  "name": "John",
+  "email": "john@example.com"
+}"#
+    )]
+    #[case(
+        r#"POST http://example.com/api
+Content-Type: application/xml
+
+<?xml version="1.0"?>
+<request>
+  <name>Test</name>
+</request>"#,
+        "POST",
+        r#"<?xml version="1.0"?>
+<request>
+  <name>Test</name>
+</request>"#
+    )]
+    fn test_parse_requests_with_body(
+        #[case] content: &str,
+        #[case] expected_method: &str,
+        #[case] expected_body: &str,
+    ) {
         let requests = parse_http_file(content);
 
         assert_eq!(requests.len(), 1);
-        assert_eq!(requests[0].method, "POST");
-        assert_eq!(requests[0].body, Some(r#"{"name": "test"}"#.to_string()));
+        assert_eq!(requests[0].method, expected_method);
+        assert_eq!(requests[0].body.as_deref(), Some(expected_body));
     }
 
     #[test]
@@ -159,6 +215,147 @@ Content-Type: application/json
 
         assert_eq!(requests.len(), 2);
         assert_eq!(requests[0].method, "GET");
+        assert_eq!(requests[0].url, "http://example.com/api/1");
         assert_eq!(requests[1].method, "POST");
+        assert_eq!(requests[1].url, "http://example.com/api/2");
+
+        // Verify line numbers match actual positions
+        let lines: Vec<&str> = content.lines().collect();
+        let first_get_line = lines.iter().position(|l| l.trim().starts_with("GET")).unwrap();
+        let first_post_line = lines.iter().position(|l| l.trim().starts_with("POST")).unwrap();
+        assert_eq!(requests[0].line_number, first_get_line);
+        assert_eq!(requests[1].line_number, first_post_line);
+    }
+
+    #[test]
+    fn test_parse_multiple_headers() {
+        let content = r#"GET http://example.com/api
+Accept: application/json
+Authorization: Bearer token123
+User-Agent: Test/1.0
+X-Custom-Header: custom-value"#;
+
+        let requests = parse_http_file(content);
+
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].headers.len(), 4);
+        assert_eq!(requests[0].headers.get("Accept"), Some(&"application/json".to_string()));
+        assert_eq!(requests[0].headers.get("Authorization"), Some(&"Bearer token123".to_string()));
+        assert_eq!(requests[0].headers.get("User-Agent"), Some(&"Test/1.0".to_string()));
+        assert_eq!(requests[0].headers.get("X-Custom-Header"), Some(&"custom-value".to_string()));
+    }
+
+    #[rstest]
+    #[case("# Just comments\n// More comments\n# No actual requests")]
+    #[case("")]
+    #[case("   \n   \n   ")]
+    fn test_parse_empty_or_comment_only_files(#[case] content: &str) {
+        let requests = parse_http_file(content);
+        assert_eq!(requests.len(), 0);
+    }
+
+    #[test]
+    fn test_parse_with_comments() {
+        let content = r#"# This is a comment
+// Another comment
+GET http://example.com/api
+Accept: application/json"#;
+
+        let requests = parse_http_file(content);
+
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].method, "GET");
+        assert_eq!(requests[0].url, "http://example.com/api");
+    }
+
+    #[test]
+    fn test_parse_with_leading_empty_lines() {
+        let content = r#"
+
+
+GET http://example.com/api"#;
+
+        let requests = parse_http_file(content);
+
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].method, "GET");
+    }
+
+    #[test]
+    fn test_parse_request_with_query_params() {
+        let content = "GET http://example.com/api?page=1&limit=10&sort=desc";
+        let requests = parse_http_file(content);
+
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].method, "GET");
+        assert_eq!(requests[0].url, "http://example.com/api?page=1&limit=10&sort=desc");
+    }
+
+    #[test]
+    fn test_parse_tracks_line_numbers() {
+        let content = r#"// Comment line 0
+
+GET http://example.com/api/1
+
+###
+
+POST http://example.com/api/2"#;
+
+        let requests = parse_http_file(content);
+
+        assert_eq!(requests.len(), 2);
+        // Line numbers are 0-indexed based on how parser stores them
+        // Line 0: comment, Line 1: empty, Line 2: GET but stored as index
+        let lines: Vec<&str> = content.lines().collect();
+        let first_get_line = lines.iter().position(|l| l.trim().starts_with("GET")).unwrap();
+        let first_post_line = lines.iter().position(|l| l.trim().starts_with("POST")).unwrap();
+
+        assert_eq!(requests[0].line_number, first_get_line);
+        assert_eq!(requests[1].line_number, first_post_line);
+    }
+
+    #[rstest]
+    #[case(
+        r#"POST http://example.com/api
+Content-Type: application/json
+
+"#,
+        None
+    )]
+    #[case(
+        r#"POST http://example.com/api
+Content-Type: application/json"#,
+        None
+    )]
+    fn test_parse_empty_body_scenarios(
+        #[case] content: &str,
+        #[case] expected_body: Option<&str>,
+    ) {
+        let requests = parse_http_file(content);
+
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].body.as_deref(), expected_body);
+    }
+
+    #[test]
+    fn test_parse_three_consecutive_requests() {
+        let content = r#"GET http://example.com/api/1
+###
+POST http://example.com/api/2
+###
+DELETE http://example.com/api/3"#;
+
+        let requests = parse_http_file(content);
+
+        assert_eq!(requests.len(), 3);
+        assert_eq!(requests[0].method, "GET");
+        assert_eq!(requests[1].method, "POST");
+        assert_eq!(requests[2].method, "DELETE");
+
+        // Verify line numbers
+        let lines: Vec<&str> = content.lines().collect();
+        assert_eq!(requests[0].line_number, lines.iter().position(|l| l.trim().starts_with("GET")).unwrap());
+        assert_eq!(requests[1].line_number, lines.iter().position(|l| l.trim().starts_with("POST")).unwrap());
+        assert_eq!(requests[2].line_number, lines.iter().position(|l| l.trim().starts_with("DELETE")).unwrap());
     }
 }

@@ -1,0 +1,6 @@
+[alias]
+# Make `cargo test` default to testing all workspace members
+t = "test --workspace"
+
+[build]
+# You can add other build configurations here if needed

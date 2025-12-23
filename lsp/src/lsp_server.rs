@@ -413,3 +413,193 @@ impl HttpLspServer {
         output
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rstest::rstest;
+
+    fn create_test_client() -> Client {
+        // Create a dummy client for testing
+        // Note: In a real scenario, you might want to use a mock
+        use tower_lsp::jsonrpc;
+        use tower_lsp::Client;
+
+        let (service, _socket) = tower_lsp::LspService::new(|client| HttpLspServer::new(client));
+        service.inner().client.clone()
+    }
+
+    fn create_test_server() -> HttpLspServer {
+        let client = create_test_client();
+        HttpLspServer::new(client)
+    }
+
+    fn create_test_request(method: &str, url: &str) -> parser::HttpRequest {
+        parser::HttpRequest {
+            method: method.to_string(),
+            url: url.to_string(),
+            headers: HashMap::new(),
+            body: None,
+            line_number: 0,
+        }
+    }
+
+    fn create_test_response(status: u16, status_text: &str, body: &str) -> executor::HttpResponse {
+        let mut headers = HashMap::new();
+        headers.insert("content-type".to_string(), "application/json".to_string());
+
+        executor::HttpResponse {
+            status,
+            status_text: status_text.to_string(),
+            headers,
+            body: body.to_string(),
+            duration_ms: 100,
+        }
+    }
+
+    #[test]
+    fn test_format_response_output_contains_request_section() {
+        let server = create_test_server();
+        let request = create_test_request("GET", "http://example.com/api");
+        let response = create_test_response(200, "OK", r#"{"message": "success"}"#);
+
+        let output = server.format_response_output(&request, &response);
+
+        assert!(output.contains("### REQUEST ###"));
+        assert!(output.contains("GET http://example.com/api"));
+    }
+
+    #[test]
+    fn test_format_response_output_contains_response_section() {
+        let server = create_test_server();
+        let request = create_test_request("GET", "http://example.com/api");
+        let response = create_test_response(200, "OK", r#"{"message": "success"}"#);
+
+        let output = server.format_response_output(&request, &response);
+
+        assert!(output.contains("### RESPONSE ###"));
+        assert!(output.contains("HTTP/1.1 200 OK (100ms)"));
+    }
+
+    #[test]
+    fn test_format_response_output_with_request_headers() {
+        let server = create_test_server();
+        let mut request = create_test_request("GET", "http://example.com/api");
+        request.headers.insert("Authorization".to_string(), "Bearer token".to_string());
+        request.headers.insert("Accept".to_string(), "application/json".to_string());
+
+        let response = create_test_response(200, "OK", r#"{"message": "success"}"#);
+
+        let output = server.format_response_output(&request, &response);
+
+        assert!(output.contains("Authorization: Bearer token"));
+        assert!(output.contains("Accept: application/json"));
+    }
+
+    #[test]
+    fn test_format_response_output_with_request_body() {
+        let server = create_test_server();
+        let mut request = create_test_request("POST", "http://example.com/api");
+        request.body = Some(r#"{"name": "test"}"#.to_string());
+
+        let response = create_test_response(201, "Created", r#"{"id": 123}"#);
+
+        let output = server.format_response_output(&request, &response);
+
+        assert!(output.contains(r#"{"name": "test"}"#));
+    }
+
+    #[test]
+    fn test_format_response_output_pretty_prints_json() {
+        let server = create_test_server();
+        let request = create_test_request("GET", "http://example.com/api");
+
+        let json_body = r#"{"name":"test","value":123}"#;
+        let response = create_test_response(200, "OK", json_body);
+
+        let output = server.format_response_output(&request, &response);
+
+        // Pretty-printed JSON should have newlines and indentation
+        assert!(output.contains("\"name\""));
+        assert!(output.contains("\"value\""));
+    }
+
+    #[test]
+    fn test_format_response_output_non_json_body() {
+        let server = create_test_server();
+        let request = create_test_request("GET", "http://example.com/api");
+
+        let mut headers = HashMap::new();
+        headers.insert("content-type".to_string(), "text/plain".to_string());
+
+        let response = executor::HttpResponse {
+            status: 200,
+            status_text: "OK".to_string(),
+            headers,
+            body: "Plain text response".to_string(),
+            duration_ms: 50,
+        };
+
+        let output = server.format_response_output(&request, &response);
+
+        assert!(output.contains("Plain text response"));
+        assert!(output.contains("content-type: text/plain"));
+    }
+
+    #[rstest]
+    #[case("GET", 200, "OK")]
+    #[case("POST", 201, "Created")]
+    #[case("PUT", 200, "OK")]
+    #[case("DELETE", 204, "No Content")]
+    #[case("PATCH", 200, "OK")]
+    fn test_format_response_output_various_methods(
+        #[case] method: &str,
+        #[case] status: u16,
+        #[case] status_text: &str,
+    ) {
+        let server = create_test_server();
+        let request = create_test_request(method, "http://example.com/api");
+        let response = create_test_response(status, status_text, "{}");
+
+        let output = server.format_response_output(&request, &response);
+
+        assert!(output.contains(&format!("{} http://example.com/api", method)));
+        assert!(output.contains(&format!("HTTP/1.1 {} {}", status, status_text)));
+    }
+
+    #[test]
+    fn test_format_response_output_structure() {
+        let server = create_test_server();
+        let request = create_test_request("GET", "http://example.com/api");
+        let response = create_test_response(200, "OK", r#"{"data": "test"}"#);
+
+        let output = server.format_response_output(&request, &response);
+
+        // Verify the structure
+        assert!(output.find("### REQUEST ###").unwrap() < output.find("### RESPONSE ###").unwrap());
+        assert!(output.find("GET http://example.com/api").unwrap() < output.find("HTTP/1.1 200 OK").unwrap());
+    }
+
+    #[test]
+    fn test_format_response_output_empty_response_body() {
+        let server = create_test_server();
+        let request = create_test_request("DELETE", "http://example.com/api/1");
+
+        let mut headers = HashMap::new();
+        headers.insert("content-length".to_string(), "0".to_string());
+
+        let response = executor::HttpResponse {
+            status: 204,
+            status_text: "No Content".to_string(),
+            headers,
+            body: String::new(),
+            duration_ms: 75,
+        };
+
+        let output = server.format_response_output(&request, &response);
+
+        assert!(output.contains("HTTP/1.1 204 No Content (75ms)"));
+        assert!(output.contains("### REQUEST ###"));
+        assert!(output.contains("### RESPONSE ###"));
+    }
+}

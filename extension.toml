@@ -5,7 +5,7 @@ version = "0.0.3"
 schema_version = 1
 authors = ["Marc d'Entremont <cramhead@gmail.com>"]
 description = "Sends HTTP requests to APIs. Syntax highlights files with a .http extension. Provides code actions so that requests can be executed. Shows the results of the request in a http-responses.http file"
-repository = "https://github.com/your-name/my-zed-extension"
+repository = "https://github.com/cramhead/http-client"
 
 
 [language_servers.http-lsp]

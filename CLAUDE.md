@@ -20,6 +20,27 @@ cargo build --target wasm32-wasip1
 cp target/wasm32-wasip1/debug/http_client.wasm extension.wasm
 ```
 
+## Testing
+
+The project is set up as a Cargo workspace with two members:
+- Root crate: The Zed extension
+- `lsp/`: The LSP server
+
+Run all tests (51 tests across both crates):
+```bash
+cargo test --workspace
+# Or use the alias:
+cargo t
+```
+
+Run tests for specific crate:
+```bash
+cargo test -p http-client  # Extension tests (2 tests)
+cargo test -p http-lsp     # LSP tests (49 tests)
+```
+
+Tests use `rstest` for parametrized/table-based testing.
+
 ## Architecture
 
 ### Extension Structure
@@ -75,19 +96,27 @@ Content-Type: application/json
 
 ## Current State
 
-**Phase 1 Complete: Syntax Highlighting**
+**Phase 1 Complete: Syntax Highlighting & Testing**
 - ✅ Basic structure is in place
 - ✅ HTTP file language support configured
 - ✅ Tree-sitter grammar configured (rest-nvim/tree-sitter-http @ e061995)
 - ✅ Syntax highlighting working for .http files
-- ❌ Core request execution logic not yet implemented (commented out in src/lib.rs)
-- ❌ Tests are commented out
+- ✅ Comprehensive test suite with 51 tests covering:
+  - HTTP request parsing (all methods, headers, bodies)
+  - Response formatting and display
+  - LSP server response output formatting
+  - Edge cases (comments, empty files, multiple requests)
+- ✅ LSP server implementation with request execution
+- ❌ Core request execution logic not yet fully integrated with extension
 
 **What Works:**
 - Syntax highlighting for HTTP methods, URLs, headers, bodies
 - Support for .http file extension
 - Comment highlighting
 - Variable highlighting (@variable syntax)
+- LSP server with code lenses and request execution
+- HTTP request parsing and execution
+- Response formatting and display
 
 ## Development Workflow
 
