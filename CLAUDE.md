@@ -26,7 +26,7 @@ The project is set up as a Cargo workspace with two members:
 - Root crate: The Zed extension
 - `lsp/`: The LSP server
 
-Run all tests (51 tests across both crates):
+Run all tests (52 tests across both crates):
 ```bash
 cargo test --workspace
 # Or use the alias:
@@ -35,7 +35,7 @@ cargo t
 
 Run tests for specific crate:
 ```bash
-cargo test -p http-client  # Extension tests (2 tests)
+cargo test -p http-client  # Extension tests (3 tests)
 cargo test -p http-lsp     # LSP tests (49 tests)
 ```
 
@@ -58,7 +58,11 @@ The project follows the Zed extension architecture:
 
 The `HttpClient` struct implements `zed::Extension` with:
 - `new()`: Initialize extension state
-- `language_server_command()`: Currently returns "Not implemented" - this is where LSP server setup would go if needed
+- `language_server_command()`: Handles LSP server binary distribution and lifecycle
+  - Detects platform (OS and architecture)
+  - Downloads platform-specific binary from GitHub Releases on first use
+  - Caches binary for subsequent launches
+  - Falls back to development binary in `bin/http-lsp` for local development
 
 The extension is registered using `zed::register_extension!(HttpClient)`.
 
@@ -94,20 +98,53 @@ Content-Type: application/json
 - Syntax highlights defined in `languages/http/highlights.scm`
 - Bracket pairs defined in language config: quotes, braces, angle brackets
 
+## Binary Distribution
+
+The extension uses a sophisticated binary distribution system:
+
+### Platform Support
+- macOS: Intel (x86_64) and Apple Silicon (aarch64)
+- Linux: x86_64 and aarch64
+- Windows: x86_64
+
+### Distribution Flow
+1. **Platform Detection**: Uses `zed::current_platform()` to detect OS and architecture
+2. **Cache Check**: Looks for binary in `bin/` directory
+3. **Download**: If not cached, fetches from GitHub Releases using `zed::latest_github_release()`
+4. **Installation**: Downloads binary, makes it executable (Unix), and caches it
+5. **Execution**: Returns cached binary path to Zed
+
+### Development Mode
+For local development, the extension prioritizes `{workspace}/bin/http-lsp` over downloading. This allows developers to test changes without triggering downloads.
+
+### CI/CD
+GitHub Actions workflow (`.github/workflows/release.yml`) automatically:
+- Builds binaries for all 5 platforms when a version tag is pushed
+- Uses cross-compilation for platform-specific builds
+- Uploads binaries to GitHub Releases with standardized names:
+  - `http-lsp-macos-x86_64`
+  - `http-lsp-macos-aarch64`
+  - `http-lsp-linux-x86_64`
+  - `http-lsp-linux-aarch64`
+  - `http-lsp-windows-x86_64.exe`
+
 ## Current State
 
-**Phase 1 Complete: Syntax Highlighting & Testing**
+**Phase 1 Complete: Full Extension Implementation**
 - ✅ Basic structure is in place
 - ✅ HTTP file language support configured
 - ✅ Tree-sitter grammar configured (rest-nvim/tree-sitter-http @ e061995)
 - ✅ Syntax highlighting working for .http files
-- ✅ Comprehensive test suite with 51 tests covering:
+- ✅ Comprehensive test suite with 52 tests covering:
   - HTTP request parsing (all methods, headers, bodies)
   - Response formatting and display
   - LSP server response output formatting
   - Edge cases (comments, empty files, multiple requests)
+  - Extension lifecycle and structure
 - ✅ LSP server implementation with request execution
-- ❌ Core request execution logic not yet fully integrated with extension
+- ✅ Cross-platform binary distribution system
+- ✅ Automatic LSP server download and caching
+- ✅ CI/CD pipeline for building release binaries
 
 **What Works:**
 - Syntax highlighting for HTTP methods, URLs, headers, bodies
@@ -117,6 +154,10 @@ Content-Type: application/json
 - LSP server with code lenses and request execution
 - HTTP request parsing and execution
 - Response formatting and display
+- Automatic platform detection (macOS x64/ARM, Linux x64/ARM, Windows x64)
+- Binary download from GitHub Releases
+- Binary caching for offline use
+- Development mode with local binaries
 
 ## Development Workflow
 
