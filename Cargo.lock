@@ -426,6 +426,7 @@ dependencies = [
  "serde_json",
  "tokio",
  "tower-lsp",
+ "url",
 ]
 
 [[package]]

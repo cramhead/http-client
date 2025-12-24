@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use url::Url;
 
 #[derive(Debug, Clone)]
 pub struct HttpRequest {
@@ -7,6 +8,31 @@ pub struct HttpRequest {
     pub headers: HashMap<String, String>,
     pub body: Option<String>,
     pub line_number: usize,
+}
+
+/// Validates that a URL is safe and well-formed for HTTP requests
+fn validate_url(url_str: &str) -> Result<String, String> {
+    // Check URL length to prevent abuse
+    if url_str.len() > 2048 {
+        return Err(format!("URL too long: {} characters (max 2048)", url_str.len()));
+    }
+
+    // Parse the URL to validate its structure
+    let parsed_url = Url::parse(url_str)
+        .map_err(|e| format!("Invalid URL: {}", e))?;
+
+    // Only allow HTTP and HTTPS schemes
+    let scheme = parsed_url.scheme();
+    if scheme != "http" && scheme != "https" {
+        return Err(format!("Unsupported URL scheme: '{}'. Only http:// and https:// are allowed", scheme));
+    }
+
+    // Ensure the URL has a host
+    if parsed_url.host_str().is_none() {
+        return Err("URL must have a valid host".to_string());
+    }
+
+    Ok(url_str.to_string())
 }
 
 pub fn parse_http_file(content: &str) -> Vec<HttpRequest> {
@@ -72,10 +98,20 @@ fn parse_block_lines(lines: &[&str], start_idx: usize, end_idx: usize) -> Option
             if parts.len() >= 2 {
                 let potential_method = parts[0].to_uppercase();
                 if valid_methods.contains(&potential_method.as_str()) {
-                    method = potential_method;
-                    url = parts[1].to_string();
-                    request_line_number = Some(idx);
-                    continue;
+                    // Validate the URL before accepting it
+                    match validate_url(parts[1]) {
+                        Ok(validated_url) => {
+                            method = potential_method;
+                            url = validated_url;
+                            request_line_number = Some(idx);
+                            continue;
+                        }
+                        Err(err) => {
+                            // Skip this invalid request and log the error
+                            eprintln!("Skipping invalid URL at line {}: {}", idx + 1, err);
+                            continue;
+                        }
+                    }
                 }
             }
         } else if in_body {
@@ -357,5 +393,76 @@ DELETE http://example.com/api/3"#;
         assert_eq!(requests[0].line_number, lines.iter().position(|l| l.trim().starts_with("GET")).unwrap());
         assert_eq!(requests[1].line_number, lines.iter().position(|l| l.trim().starts_with("POST")).unwrap());
         assert_eq!(requests[2].line_number, lines.iter().position(|l| l.trim().starts_with("DELETE")).unwrap());
+    }
+
+    // URL Validation Tests
+    #[rstest]
+    #[case("http://example.com")]
+    #[case("https://example.com")]
+    #[case("http://example.com/path")]
+    #[case("https://api.example.com/v1/users")]
+    #[case("http://localhost:8080")]
+    #[case("https://example.com:443/path?query=value")]
+    fn test_validate_url_accepts_valid_http_urls(#[case] url: &str) {
+        let result = validate_url(url);
+        assert!(result.is_ok(), "Expected '{}' to be valid, got: {:?}", url, result);
+        assert_eq!(result.unwrap(), url);
+    }
+
+    #[rstest]
+    #[case("file:///etc/passwd", "file")]
+    #[case("javascript:alert('xss')", "javascript")]
+    #[case("data:text/html,<script>alert('xss')</script>", "data")]
+    #[case("ftp://example.com", "ftp")]
+    #[case("ws://example.com", "ws")]
+    #[case("wss://example.com", "wss")]
+    fn test_validate_url_rejects_unsafe_schemes(#[case] url: &str, #[case] scheme: &str) {
+        let result = validate_url(url);
+        assert!(result.is_err(), "Expected '{}' to be rejected", url);
+        assert!(result.unwrap_err().contains(scheme), "Error should mention the scheme");
+    }
+
+    #[rstest]
+    #[case("not-a-url")]
+    #[case("http://")]
+    #[case("://example.com")]
+    #[case("example.com")]
+    fn test_validate_url_rejects_malformed_urls(#[case] url: &str) {
+        let result = validate_url(url);
+        assert!(result.is_err(), "Expected '{}' to be rejected as malformed", url);
+    }
+
+    #[test]
+    fn test_validate_url_rejects_excessively_long_urls() {
+        let long_url = format!("http://example.com/{}", "a".repeat(2050));
+        let result = validate_url(&long_url);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("too long"));
+    }
+
+    #[test]
+    fn test_parse_skips_requests_with_invalid_urls() {
+        let content = r#"GET file:///etc/passwd
+###
+POST https://valid.com/api
+Content-Type: application/json
+
+{"data": "value"}"#;
+
+        let requests = parse_http_file(content);
+
+        // Should only parse the valid HTTPS request, skipping the file:// URL
+        assert_eq!(requests.len(), 1);
+        assert_eq!(requests[0].method, "POST");
+        assert_eq!(requests[0].url, "https://valid.com/api");
+    }
+
+    #[test]
+    fn test_parse_handles_javascript_url_attempt() {
+        let content = "GET javascript:alert('xss')";
+        let requests = parse_http_file(content);
+
+        // Should skip the malicious request
+        assert_eq!(requests.len(), 0);
     }
 }
