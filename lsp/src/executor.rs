@@ -49,7 +49,9 @@ pub async fn execute_request(req: &HttpRequest) -> Result<HttpResponse> {
 
     // Extract response data
     let status = response.status().as_u16();
-    let status_text = response.status().canonical_reason()
+    let status_text = response
+        .status()
+        .canonical_reason()
         .unwrap_or("Unknown")
         .to_string();
 
@@ -94,7 +96,10 @@ impl HttpResponse {
     }
 
     pub fn summary(&self) -> String {
-        format!("{} {} ({}ms)", self.status, self.status_text, self.duration_ms)
+        format!(
+            "{} {} ({}ms)",
+            self.status, self.status_text, self.duration_ms
+        )
     }
 }
 
@@ -122,7 +127,12 @@ mod tests {
     #[case(201, "Created", 200, "201 Created (200ms)")]
     #[case(400, "Bad Request", 50, "400 Bad Request (50ms)")]
     #[case(404, "Not Found", 75, "404 Not Found (75ms)")]
-    #[case(500, "Internal Server Error", 1000, "500 Internal Server Error (1000ms)")]
+    #[case(
+        500,
+        "Internal Server Error",
+        1000,
+        "500 Internal Server Error (1000ms)"
+    )]
     fn test_response_summary(
         #[case] status: u16,
         #[case] status_text: &str,
@@ -175,7 +185,9 @@ mod tests {
         let lines: Vec<&str> = formatted.lines().collect();
 
         assert_eq!(lines[0], "HTTP/1.1 200 OK");
-        assert!(lines.iter().any(|line| line.contains("content-type: text/plain")));
+        assert!(lines
+            .iter()
+            .any(|line| line.contains("content-type: text/plain")));
         assert!(formatted.ends_with("Hello World"));
     }
 

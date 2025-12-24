@@ -1,6 +1,6 @@
-mod parser;
 mod executor;
 mod lsp_server;
+mod parser;
 
 use tower_lsp::{LspService, Server};
 

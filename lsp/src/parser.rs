@@ -14,17 +14,22 @@ pub struct HttpRequest {
 fn validate_url(url_str: &str) -> Result<String, String> {
     // Check URL length to prevent abuse
     if url_str.len() > 2048 {
-        return Err(format!("URL too long: {} characters (max 2048)", url_str.len()));
+        return Err(format!(
+            "URL too long: {} characters (max 2048)",
+            url_str.len()
+        ));
     }
 
     // Parse the URL to validate its structure
-    let parsed_url = Url::parse(url_str)
-        .map_err(|e| format!("Invalid URL: {}", e))?;
+    let parsed_url = Url::parse(url_str).map_err(|e| format!("Invalid URL: {}", e))?;
 
     // Only allow HTTP and HTTPS schemes
     let scheme = parsed_url.scheme();
     if scheme != "http" && scheme != "https" {
-        return Err(format!("Unsupported URL scheme: '{}'. Only http:// and https:// are allowed", scheme));
+        return Err(format!(
+            "Unsupported URL scheme: '{}'. Only http:// and https:// are allowed",
+            scheme
+        ));
     }
 
     // Ensure the URL has a host
@@ -145,7 +150,6 @@ fn parse_block_lines(lines: &[&str], start_idx: usize, end_idx: usize) -> Option
     })
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -154,12 +158,42 @@ mod tests {
     #[rstest]
     #[case("GET http://example.com/api", "GET", "http://example.com/api", 0, None)]
     #[case("get http://example.com/api", "GET", "http://example.com/api", 0, None)]
-    #[case("POST http://example.com/api", "POST", "http://example.com/api", 0, None)]
+    #[case(
+        "POST http://example.com/api",
+        "POST",
+        "http://example.com/api",
+        0,
+        None
+    )]
     #[case("PUT http://example.com/api", "PUT", "http://example.com/api", 0, None)]
-    #[case("DELETE http://example.com/api", "DELETE", "http://example.com/api", 0, None)]
-    #[case("PATCH http://example.com/api", "PATCH", "http://example.com/api", 0, None)]
-    #[case("HEAD http://example.com/api", "HEAD", "http://example.com/api", 0, None)]
-    #[case("OPTIONS http://example.com/api", "OPTIONS", "http://example.com/api", 0, None)]
+    #[case(
+        "DELETE http://example.com/api",
+        "DELETE",
+        "http://example.com/api",
+        0,
+        None
+    )]
+    #[case(
+        "PATCH http://example.com/api",
+        "PATCH",
+        "http://example.com/api",
+        0,
+        None
+    )]
+    #[case(
+        "HEAD http://example.com/api",
+        "HEAD",
+        "http://example.com/api",
+        0,
+        None
+    )]
+    #[case(
+        "OPTIONS http://example.com/api",
+        "OPTIONS",
+        "http://example.com/api",
+        0,
+        None
+    )]
     fn test_parse_http_methods(
         #[case] content: &str,
         #[case] expected_method: &str,
@@ -184,7 +218,10 @@ mod tests {
         assert_eq!(requests.len(), 1);
         assert_eq!(requests[0].method, "GET");
         assert_eq!(requests[0].url, "http://example.com/api");
-        assert_eq!(requests[0].headers.get("Accept"), Some(&"application/json".to_string()));
+        assert_eq!(
+            requests[0].headers.get("Accept"),
+            Some(&"application/json".to_string())
+        );
     }
 
     #[rstest]
@@ -257,8 +294,14 @@ Content-Type: application/json
 
         // Verify line numbers match actual positions
         let lines: Vec<&str> = content.lines().collect();
-        let first_get_line = lines.iter().position(|l| l.trim().starts_with("GET")).expect("GET line not found");
-        let first_post_line = lines.iter().position(|l| l.trim().starts_with("POST")).expect("POST line not found");
+        let first_get_line = lines
+            .iter()
+            .position(|l| l.trim().starts_with("GET"))
+            .expect("GET line not found");
+        let first_post_line = lines
+            .iter()
+            .position(|l| l.trim().starts_with("POST"))
+            .expect("POST line not found");
         assert_eq!(requests[0].line_number, first_get_line);
         assert_eq!(requests[1].line_number, first_post_line);
     }
@@ -275,10 +318,22 @@ X-Custom-Header: custom-value"#;
 
         assert_eq!(requests.len(), 1);
         assert_eq!(requests[0].headers.len(), 4);
-        assert_eq!(requests[0].headers.get("Accept"), Some(&"application/json".to_string()));
-        assert_eq!(requests[0].headers.get("Authorization"), Some(&"Bearer token123".to_string()));
-        assert_eq!(requests[0].headers.get("User-Agent"), Some(&"Test/1.0".to_string()));
-        assert_eq!(requests[0].headers.get("X-Custom-Header"), Some(&"custom-value".to_string()));
+        assert_eq!(
+            requests[0].headers.get("Accept"),
+            Some(&"application/json".to_string())
+        );
+        assert_eq!(
+            requests[0].headers.get("Authorization"),
+            Some(&"Bearer token123".to_string())
+        );
+        assert_eq!(
+            requests[0].headers.get("User-Agent"),
+            Some(&"Test/1.0".to_string())
+        );
+        assert_eq!(
+            requests[0].headers.get("X-Custom-Header"),
+            Some(&"custom-value".to_string())
+        );
     }
 
     #[rstest]
@@ -324,7 +379,10 @@ GET http://example.com/api"#;
 
         assert_eq!(requests.len(), 1);
         assert_eq!(requests[0].method, "GET");
-        assert_eq!(requests[0].url, "http://example.com/api?page=1&limit=10&sort=desc");
+        assert_eq!(
+            requests[0].url,
+            "http://example.com/api?page=1&limit=10&sort=desc"
+        );
     }
 
     #[test]
@@ -343,8 +401,14 @@ POST http://example.com/api/2"#;
         // Line numbers are 0-indexed based on how parser stores them
         // Line 0: comment, Line 1: empty, Line 2: GET but stored as index
         let lines: Vec<&str> = content.lines().collect();
-        let first_get_line = lines.iter().position(|l| l.trim().starts_with("GET")).expect("GET line not found");
-        let first_post_line = lines.iter().position(|l| l.trim().starts_with("POST")).expect("POST line not found");
+        let first_get_line = lines
+            .iter()
+            .position(|l| l.trim().starts_with("GET"))
+            .expect("GET line not found");
+        let first_post_line = lines
+            .iter()
+            .position(|l| l.trim().starts_with("POST"))
+            .expect("POST line not found");
 
         assert_eq!(requests[0].line_number, first_get_line);
         assert_eq!(requests[1].line_number, first_post_line);
@@ -363,10 +427,7 @@ Content-Type: application/json
 Content-Type: application/json"#,
         None
     )]
-    fn test_parse_empty_body_scenarios(
-        #[case] content: &str,
-        #[case] expected_body: Option<&str>,
-    ) {
+    fn test_parse_empty_body_scenarios(#[case] content: &str, #[case] expected_body: Option<&str>) {
         let requests = parse_http_file(content);
 
         assert_eq!(requests.len(), 1);
@@ -390,9 +451,27 @@ DELETE http://example.com/api/3"#;
 
         // Verify line numbers
         let lines: Vec<&str> = content.lines().collect();
-        assert_eq!(requests[0].line_number, lines.iter().position(|l| l.trim().starts_with("GET")).expect("GET line not found"));
-        assert_eq!(requests[1].line_number, lines.iter().position(|l| l.trim().starts_with("POST")).expect("POST line not found"));
-        assert_eq!(requests[2].line_number, lines.iter().position(|l| l.trim().starts_with("DELETE")).expect("DELETE line not found"));
+        assert_eq!(
+            requests[0].line_number,
+            lines
+                .iter()
+                .position(|l| l.trim().starts_with("GET"))
+                .expect("GET line not found")
+        );
+        assert_eq!(
+            requests[1].line_number,
+            lines
+                .iter()
+                .position(|l| l.trim().starts_with("POST"))
+                .expect("POST line not found")
+        );
+        assert_eq!(
+            requests[2].line_number,
+            lines
+                .iter()
+                .position(|l| l.trim().starts_with("DELETE"))
+                .expect("DELETE line not found")
+        );
     }
 
     // URL Validation Tests
@@ -405,7 +484,12 @@ DELETE http://example.com/api/3"#;
     #[case("https://example.com:443/path?query=value")]
     fn test_validate_url_accepts_valid_http_urls(#[case] url: &str) {
         let result = validate_url(url);
-        assert!(result.is_ok(), "Expected '{}' to be valid, got: {:?}", url, result);
+        assert!(
+            result.is_ok(),
+            "Expected '{}' to be valid, got: {:?}",
+            url,
+            result
+        );
         assert_eq!(result.expect("URL validation should succeed"), url);
     }
 
@@ -419,7 +503,10 @@ DELETE http://example.com/api/3"#;
     fn test_validate_url_rejects_unsafe_schemes(#[case] url: &str, #[case] scheme: &str) {
         let result = validate_url(url);
         assert!(result.is_err(), "Expected '{}' to be rejected", url);
-        assert!(result.unwrap_err().contains(scheme), "Error should mention the scheme");
+        assert!(
+            result.unwrap_err().contains(scheme),
+            "Error should mention the scheme"
+        );
     }
 
     #[rstest]
@@ -429,7 +516,11 @@ DELETE http://example.com/api/3"#;
     #[case("example.com")]
     fn test_validate_url_rejects_malformed_urls(#[case] url: &str) {
         let result = validate_url(url);
-        assert!(result.is_err(), "Expected '{}' to be rejected as malformed", url);
+        assert!(
+            result.is_err(),
+            "Expected '{}' to be rejected as malformed",
+            url
+        );
     }
 
     #[test]

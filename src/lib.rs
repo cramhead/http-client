@@ -1,6 +1,6 @@
+use std::fs;
 use zed_extension_api as zed;
 use zed_extension_api::{Architecture, LanguageServerId, Os, Result};
-use std::fs;
 
 pub struct HttpClient;
 
@@ -53,13 +53,20 @@ fn get_binary_name_for_platform(platform: &(Os, Architecture)) -> String {
         Architecture::X86 => "x86",
     };
 
-    let extension = if platform.0 == Os::Windows { ".exe" } else { "" };
+    let extension = if platform.0 == Os::Windows {
+        ".exe"
+    } else {
+        ""
+    };
 
     format!("http-lsp-{}-{}{}", os, arch, extension)
 }
 
 /// Ensure the binary is cached, downloading if necessary
-fn ensure_binary_cached(language_server_id: &LanguageServerId, binary_name: &str) -> Result<String> {
+fn ensure_binary_cached(
+    language_server_id: &LanguageServerId,
+    binary_name: &str,
+) -> Result<String> {
     let binary_path = format!("bin/{}", binary_name);
 
     // Check if already cached

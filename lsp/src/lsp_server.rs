@@ -1,12 +1,12 @@
 use crate::{executor, parser};
 use std::collections::HashMap;
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tower_lsp::jsonrpc::Result;
 use tower_lsp::lsp_types::*;
 use tower_lsp::{Client, LanguageServer};
-use std::fs::OpenOptions;
-use std::io::Write;
 
 pub struct HttpLspServer {
     client: Client,
@@ -29,11 +29,7 @@ impl HttpLspServer {
         // Unix/Linux/macOS: /tmp/http-lsp.log
         // Windows: C:\Users\<user>\AppData\Local\Temp\http-lsp.log
         let log_path = std::env::temp_dir().join("http-lsp.log");
-        if let Ok(mut file) = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&log_path)
-        {
+        if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_path) {
             let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
             let _ = writeln!(file, "[{}] {}", timestamp, msg);
         }
@@ -51,7 +47,10 @@ impl LanguageServer for HttpLspServer {
             .await;
 
         self.client
-            .log_message(MessageType::INFO, format!("Client capabilities: {:?}", params.capabilities))
+            .log_message(
+                MessageType::INFO,
+                format!("Client capabilities: {:?}", params.capabilities),
+            )
             .await;
 
         Ok(InitializeResult {
@@ -109,14 +108,20 @@ impl LanguageServer for HttpLspServer {
     }
 
     async fn did_close(&self, params: DidCloseTextDocumentParams) {
-        self.document_map.lock().await.remove(&params.text_document.uri);
+        self.document_map
+            .lock()
+            .await
+            .remove(&params.text_document.uri);
     }
 
     async fn code_action(&self, params: CodeActionParams) -> Result<Option<CodeActionResponse>> {
         let uri = params.text_document.uri;
         let line = params.range.start.line as usize;
 
-        Self::log_to_file(&format!("Code action requested for: {} at line {}", uri, line));
+        Self::log_to_file(&format!(
+            "Code action requested for: {} at line {}",
+            uri, line
+        ));
 
         let document_map = self.document_map.lock().await;
         let content = match document_map.get(&uri) {
@@ -132,16 +137,23 @@ impl LanguageServer for HttpLspServer {
 
         Self::log_to_file(&format!("Found {} HTTP requests", requests.len()));
         for req in &requests {
-            Self::log_to_file(&format!("  - {} {} at line {}", req.method, req.url, req.line_number));
+            Self::log_to_file(&format!(
+                "  - {} {} at line {}",
+                req.method, req.url, req.line_number
+            ));
         }
 
         // Find request at the current line - find the closest one before or at this line
-        let request = requests.iter()
+        let request = requests
+            .iter()
             .filter(|r| r.line_number <= line)
             .max_by_key(|r| r.line_number);
 
         if let Some(request) = request {
-            Self::log_to_file(&format!("Found request {} at line {}", request.method, request.line_number));
+            Self::log_to_file(&format!(
+                "Found request {} at line {}",
+                request.method, request.line_number
+            ));
 
             let action = CodeActionOrCommand::CodeAction(CodeAction {
                 title: format!("▶ Send {} Request", request.method),
@@ -152,8 +164,10 @@ impl LanguageServer for HttpLspServer {
                     title: format!("Send {} Request", request.method),
                     command: "http.sendRequest".to_string(),
                     arguments: Some(vec![
-                        serde_json::to_value(&uri.to_string()).expect("Failed to serialize URI string"),
-                        serde_json::to_value(request.line_number).expect("Failed to serialize line number"),
+                        serde_json::to_value(&uri.to_string())
+                            .expect("Failed to serialize URI string"),
+                        serde_json::to_value(request.line_number)
+                            .expect("Failed to serialize line number"),
                     ]),
                 }),
                 is_preferred: Some(true),
@@ -173,7 +187,10 @@ impl LanguageServer for HttpLspServer {
         Self::log_to_file(&format!("Code lens requested for: {}", uri));
 
         self.client
-            .log_message(MessageType::INFO, format!("Code lens requested for: {}", uri))
+            .log_message(
+                MessageType::INFO,
+                format!("Code lens requested for: {}", uri),
+            )
             .await;
 
         let document_map = self.document_map.lock().await;
@@ -181,7 +198,10 @@ impl LanguageServer for HttpLspServer {
             Some(content) => content.clone(),
             None => {
                 self.client
-                    .log_message(MessageType::WARNING, format!("Document not found in map: {}", uri))
+                    .log_message(
+                        MessageType::WARNING,
+                        format!("Document not found in map: {}", uri),
+                    )
                     .await;
                 return Ok(None);
             }
@@ -192,17 +212,26 @@ impl LanguageServer for HttpLspServer {
 
         Self::log_to_file(&format!("Found {} HTTP requests", requests.len()));
         for req in &requests {
-            Self::log_to_file(&format!("  - {} {} at line {}", req.method, req.url, req.line_number));
+            Self::log_to_file(&format!(
+                "  - {} {} at line {}",
+                req.method, req.url, req.line_number
+            ));
         }
 
         self.client
-            .log_message(MessageType::INFO, format!("Found {} HTTP requests", requests.len()))
+            .log_message(
+                MessageType::INFO,
+                format!("Found {} HTTP requests", requests.len()),
+            )
             .await;
 
         let mut lenses = Vec::new();
 
         for request in requests {
-            Self::log_to_file(&format!("Creating lens for {} at line {}", request.method, request.line_number));
+            Self::log_to_file(&format!(
+                "Creating lens for {} at line {}",
+                request.method, request.line_number
+            ));
 
             // Create a code lens above the request line
             let range = Range {
@@ -222,8 +251,10 @@ impl LanguageServer for HttpLspServer {
                     title: format!("▶ Send {} Request", request.method),
                     command: "http.sendRequest".to_string(),
                     arguments: Some(vec![
-                        serde_json::to_value(&uri.to_string()).expect("Failed to serialize URI string"),
-                        serde_json::to_value(request.line_number).expect("Failed to serialize line number"),
+                        serde_json::to_value(&uri.to_string())
+                            .expect("Failed to serialize URI string"),
+                        serde_json::to_value(request.line_number)
+                            .expect("Failed to serialize line number"),
                     ]),
                 }),
                 data: None,
@@ -237,7 +268,10 @@ impl LanguageServer for HttpLspServer {
         Ok(Some(lenses))
     }
 
-    async fn execute_command(&self, params: ExecuteCommandParams) -> Result<Option<serde_json::Value>> {
+    async fn execute_command(
+        &self,
+        params: ExecuteCommandParams,
+    ) -> Result<Option<serde_json::Value>> {
         if params.command == "http.sendRequest" {
             // Extract arguments
             let args = params.arguments;
@@ -269,7 +303,8 @@ impl LanguageServer for HttpLspServer {
 
                 // Parse requests and find the one at the specified line
                 let requests = parser::parse_http_file(&content);
-                let request = requests.iter()
+                let request = requests
+                    .iter()
                     .filter(|r| r.line_number == line_number)
                     .next();
 
@@ -307,7 +342,10 @@ impl LanguageServer for HttpLspServer {
                             };
 
                             let output_file = workspace_root.join("http-responses.http");
-                            Self::log_to_file(&format!("Writing response to output file: {}", output_file.display()));
+                            Self::log_to_file(&format!(
+                                "Writing response to output file: {}",
+                                output_file.display()
+                            ));
 
                             // Prepare content with separator
                             let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
@@ -324,7 +362,10 @@ impl LanguageServer for HttpLspServer {
                             {
                                 Ok(mut file) => {
                                     if let Err(e) = file.write_all(full_content.as_bytes()) {
-                                        Self::log_to_file(&format!("Failed to write to output file: {}", e));
+                                        Self::log_to_file(&format!(
+                                            "Failed to write to output file: {}",
+                                            e
+                                        ));
                                     } else {
                                         Self::log_to_file("Response written successfully");
 
@@ -338,7 +379,10 @@ impl LanguageServer for HttpLspServer {
                                     }
                                 }
                                 Err(e) => {
-                                    Self::log_to_file(&format!("Failed to open output file: {}", e));
+                                    Self::log_to_file(&format!(
+                                        "Failed to open output file: {}",
+                                        e
+                                    ));
 
                                     self.client
                                         .show_message(
@@ -349,7 +393,10 @@ impl LanguageServer for HttpLspServer {
                                 }
                             }
 
-                            return Ok(Some(serde_json::to_value(response.summary()).expect("Failed to serialize response summary")));
+                            return Ok(Some(
+                                serde_json::to_value(response.summary())
+                                    .expect("Failed to serialize response summary"),
+                            ));
                         }
                         Err(e) => {
                             self.client
@@ -366,7 +413,11 @@ impl LanguageServer for HttpLspServer {
 }
 
 impl HttpLspServer {
-    fn format_response_output(&self, request: &parser::HttpRequest, response: &executor::HttpResponse) -> String {
+    fn format_response_output(
+        &self,
+        request: &parser::HttpRequest,
+        response: &executor::HttpResponse,
+    ) -> String {
         let mut output = String::new();
 
         // Request section
@@ -390,10 +441,10 @@ impl HttpLspServer {
         output.push_str("### RESPONSE ###\n");
 
         // Response status line
-        output.push_str(&format!("HTTP/1.1 {} {} ({}ms)\n",
-            response.status,
-            response.status_text,
-            response.duration_ms));
+        output.push_str(&format!(
+            "HTTP/1.1 {} {} ({}ms)\n",
+            response.status, response.status_text, response.duration_ms
+        ));
 
         // Response headers
         output.push('\n');
@@ -493,8 +544,12 @@ mod tests {
     fn test_format_response_output_with_request_headers() {
         let server = create_test_server();
         let mut request = create_test_request("GET", "http://example.com/api");
-        request.headers.insert("Authorization".to_string(), "Bearer token".to_string());
-        request.headers.insert("Accept".to_string(), "application/json".to_string());
+        request
+            .headers
+            .insert("Authorization".to_string(), "Bearer token".to_string());
+        request
+            .headers
+            .insert("Accept".to_string(), "application/json".to_string());
 
         let response = create_test_response(200, "OK", r#"{"message": "success"}"#);
 
@@ -584,12 +639,20 @@ mod tests {
         let output = server.format_response_output(&request, &response);
 
         // Verify the structure
-        let request_pos = output.find("### REQUEST ###").expect("REQUEST section not found");
-        let response_pos = output.find("### RESPONSE ###").expect("RESPONSE section not found");
+        let request_pos = output
+            .find("### REQUEST ###")
+            .expect("REQUEST section not found");
+        let response_pos = output
+            .find("### RESPONSE ###")
+            .expect("RESPONSE section not found");
         assert!(request_pos < response_pos);
 
-        let get_pos = output.find("GET http://example.com/api").expect("GET request not found");
-        let status_pos = output.find("HTTP/1.1 200 OK").expect("Status line not found");
+        let get_pos = output
+            .find("GET http://example.com/api")
+            .expect("GET request not found");
+        let status_pos = output
+            .find("HTTP/1.1 200 OK")
+            .expect("Status line not found");
         assert!(get_pos < status_pos);
     }
 
