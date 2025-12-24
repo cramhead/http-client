@@ -25,11 +25,14 @@ impl HttpLspServer {
     }
 
     fn log_to_file(msg: &str) {
-        let log_path = "/tmp/http-lsp.log";
+        // Use cross-platform temp directory
+        // Unix/Linux/macOS: /tmp/http-lsp.log
+        // Windows: C:\Users\<user>\AppData\Local\Temp\http-lsp.log
+        let log_path = std::env::temp_dir().join("http-lsp.log");
         if let Ok(mut file) = OpenOptions::new()
             .create(true)
             .append(true)
-            .open(log_path)
+            .open(&log_path)
         {
             let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
             let _ = writeln!(file, "[{}] {}", timestamp, msg);
@@ -281,22 +284,22 @@ impl LanguageServer for HttpLspServer {
                                 let path = uri.path();
                                 // Find the project root by looking for common indicators
                                 if let Some(pos) = path.rfind("/test/") {
-                                    &path[..pos]
+                                    std::path::PathBuf::from(&path[..pos])
                                 } else if let Some(pos) = path.rfind("/src/") {
-                                    &path[..pos]
+                                    std::path::PathBuf::from(&path[..pos])
                                 } else {
-                                    // Fallback: use parent directory
+                                    // Fallback: use parent directory or temp directory
                                     std::path::Path::new(path)
                                         .parent()
-                                        .and_then(|p| p.to_str())
-                                        .unwrap_or("/tmp")
+                                        .map(|p| p.to_path_buf())
+                                        .unwrap_or_else(|| std::env::temp_dir())
                                 }
                             } else {
-                                "/tmp"
+                                std::env::temp_dir()
                             };
 
-                            let output_file = format!("{}/http-responses.http", workspace_root);
-                            Self::log_to_file(&format!("Writing response to output file: {}", output_file));
+                            let output_file = workspace_root.join("http-responses.http");
+                            Self::log_to_file(&format!("Writing response to output file: {}", output_file.display()));
 
                             // Prepare content with separator
                             let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S");
