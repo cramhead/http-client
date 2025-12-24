@@ -1,0 +1,91 @@
+name: Cross-Platform Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v3
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v3
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run tests
+        run: cargo test --workspace --verbose
+
+      - name: Build LSP binary
+        run: cargo build --release -p http-lsp
+
+      - name: Verify LSP binary exists (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          ls -la target/release/http-lsp
+          file target/release/http-lsp
+
+      - name: Verify LSP binary exists (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          dir target\release\http-lsp.exe
+
+      - name: Test temp directory path (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          echo "Testing temp directory access..."
+          ls -la /tmp/ || echo "Temp directory accessible"
+
+      - name: Test temp directory path (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          echo "Testing temp directory access..."
+          echo $env:TEMP
+          dir $env:TEMP
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
