@@ -159,6 +159,52 @@ GitHub Actions workflow (`.github/workflows/release.yml`) automatically:
 - Binary caching for offline use
 - Development mode with local binaries
 
+## Release Process
+
+### Creating a New Release
+
+To trigger a new release build:
+
+```bash
+git tag v0.x.x
+git push origin v0.x.x
+```
+
+This triggers the GitHub Actions workflow which:
+1. Builds binaries for all 5 platforms
+2. Creates artifacts
+3. Publishes a GitHub release with all binaries
+
+### Where to Find Release Artifacts
+
+**GitHub Actions Artifacts (Temporary - 90 days):**
+```
+https://github.com/cramhead/http-client/actions
+```
+- Click on the latest workflow run
+- Scroll to "Artifacts" section
+- All 5 binaries are listed there
+
+**GitHub Releases (Permanent):**
+```
+https://github.com/cramhead/http-client/releases
+```
+- View specific release: `https://github.com/cramhead/http-client/releases/tag/v0.x.x`
+- Contains all platform binaries:
+  - `http-lsp-macos-x86_64`
+  - `http-lsp-macos-aarch64`
+  - `http-lsp-linux-x86_64`
+  - `http-lsp-linux-aarch64`
+  - `http-lsp-windows-x86_64.exe`
+
+### Binary Distribution
+
+When users install the extension:
+1. Extension detects their platform (OS + architecture)
+2. Downloads matching binary from latest GitHub release
+3. Caches binary in extension working directory
+4. Launches LSP server with cached binary
+
 ## Development Workflow
 
 1. Make changes to Rust code in `src/`
