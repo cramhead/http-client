@@ -211,3 +211,40 @@ When users install the extension:
 2. Build with appropriate cargo command (see above)
 3. Test using the `test/test.http` file
 4. The extension.wasm file is the compiled output that Zed loads
+
+## Code Quality
+
+### Pre-commit Hooks (Optional)
+
+To catch formatting and linting issues before committing, you can install git hooks:
+
+```bash
+./scripts/install-git-hooks.sh
+```
+
+This installs a pre-commit hook that automatically runs:
+- `cargo fmt --all --check` - Ensures code is formatted
+- `cargo clippy --workspace --all-targets -- -D warnings` - Catches common mistakes and enforces linting rules
+
+If either check fails, the commit is blocked until you fix the issues.
+
+**To bypass the hook** (not recommended):
+```bash
+git commit --no-verify
+```
+
+**Note:** The CI pipeline always runs these checks, so even if you bypass the local hook, the CI will catch any issues.
+
+### Clippy Configuration
+
+The project uses `clippy.toml` to enforce additional linting rules:
+- **Banned methods**: `unwrap()` calls are not allowed
+- **Rationale**: Use `expect()` with descriptive messages or proper error handling instead
+
+### CI Checks
+
+All pull requests and pushes are automatically tested via GitHub Actions:
+- Cross-platform tests (Ubuntu, macOS, Windows)
+- Code formatting check (`cargo fmt`)
+- Clippy linting (`cargo clippy`)
+- All 71 tests must pass

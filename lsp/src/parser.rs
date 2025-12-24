@@ -83,8 +83,8 @@ fn parse_block_lines(lines: &[&str], start_idx: usize, end_idx: usize) -> Option
     let mut request_line_number: Option<usize> = None;
     let mut in_body = false;
 
-    for idx in start_idx..end_idx {
-        let line = lines[idx];
+    for (offset, line) in lines[start_idx..end_idx].iter().enumerate() {
+        let idx = start_idx + offset;
         let trimmed = line.trim();
 
         // Skip empty lines before finding the request
@@ -121,7 +121,7 @@ fn parse_block_lines(lines: &[&str], start_idx: usize, end_idx: usize) -> Option
             }
         } else if in_body {
             // Collect body lines
-            body_lines.push(line);
+            body_lines.push(*line);
         } else if trimmed.is_empty() {
             // Empty line marks start of body
             in_body = true;

@@ -16,7 +16,7 @@ pub struct HttpLspServer {
 impl HttpLspServer {
     pub fn new(client: Client) -> Self {
         // Log to file for debugging
-        let _ = Self::log_to_file("HTTP LSP Server created");
+        Self::log_to_file("HTTP LSP Server created");
 
         HttpLspServer {
             client,
@@ -164,7 +164,7 @@ impl LanguageServer for HttpLspServer {
                     title: format!("Send {} Request", request.method),
                     command: "http.sendRequest".to_string(),
                     arguments: Some(vec![
-                        serde_json::to_value(&uri.to_string())
+                        serde_json::to_value(uri.to_string())
                             .expect("Failed to serialize URI string"),
                         serde_json::to_value(request.line_number)
                             .expect("Failed to serialize line number"),
@@ -251,7 +251,7 @@ impl LanguageServer for HttpLspServer {
                     title: format!("▶ Send {} Request", request.method),
                     command: "http.sendRequest".to_string(),
                     arguments: Some(vec![
-                        serde_json::to_value(&uri.to_string())
+                        serde_json::to_value(uri.to_string())
                             .expect("Failed to serialize URI string"),
                         serde_json::to_value(request.line_number)
                             .expect("Failed to serialize line number"),
@@ -303,10 +303,7 @@ impl LanguageServer for HttpLspServer {
 
                 // Parse requests and find the one at the specified line
                 let requests = parser::parse_http_file(&content);
-                let request = requests
-                    .iter()
-                    .filter(|r| r.line_number == line_number)
-                    .next();
+                let request = requests.iter().find(|r| r.line_number == line_number);
 
                 if let Some(request) = request {
                     self.client
@@ -335,7 +332,7 @@ impl LanguageServer for HttpLspServer {
                                     std::path::Path::new(path)
                                         .parent()
                                         .map(|p| p.to_path_buf())
-                                        .unwrap_or_else(|| std::env::temp_dir())
+                                        .unwrap_or_else(std::env::temp_dir)
                                 }
                             } else {
                                 std::env::temp_dir()
@@ -432,12 +429,12 @@ impl HttpLspServer {
         }
 
         if let Some(body) = &request.body {
-            output.push_str("\n");
+            output.push('\n');
             output.push_str(body);
             output.push('\n');
         }
 
-        output.push_str("\n");
+        output.push('\n');
         output.push_str("### RESPONSE ###\n");
 
         // Response status line
@@ -453,7 +450,7 @@ impl HttpLspServer {
         }
 
         // Response body
-        output.push_str("\n");
+        output.push('\n');
 
         // Try to pretty-print JSON
         if let Some(content_type) = response.headers.get("content-type") {
@@ -484,7 +481,7 @@ mod tests {
     fn create_test_client() -> Client {
         // Create a dummy client for testing
         // Note: In a real scenario, you might want to use a mock
-        let (service, _socket) = tower_lsp::LspService::new(|client| HttpLspServer::new(client));
+        let (service, _socket) = tower_lsp::LspService::new(HttpLspServer::new);
         service.inner().client.clone()
     }
 
