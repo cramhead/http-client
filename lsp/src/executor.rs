@@ -72,6 +72,7 @@ pub async fn execute_request(req: &HttpRequest) -> Result<HttpResponse> {
 }
 
 impl HttpResponse {
+    #[cfg(test)]
     pub fn format_as_http(&self) -> String {
         let mut result = String::new();
 

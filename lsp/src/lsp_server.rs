@@ -277,7 +277,7 @@ impl LanguageServer for HttpLspServer {
                             let response_content = self.format_response_output(request, &response);
 
                             // Get the workspace root from the URI
-                            let workspace_root = if let Some(segments) = uri.path_segments() {
+                            let workspace_root = if let Some(_segments) = uri.path_segments() {
                                 let path = uri.path();
                                 // Find the project root by looking for common indicators
                                 if let Some(pos) = path.rfind("/test/") {
@@ -422,9 +422,6 @@ mod tests {
     fn create_test_client() -> Client {
         // Create a dummy client for testing
         // Note: In a real scenario, you might want to use a mock
-        use tower_lsp::jsonrpc;
-        use tower_lsp::Client;
-
         let (service, _socket) = tower_lsp::LspService::new(|client| HttpLspServer::new(client));
         service.inner().client.clone()
     }
