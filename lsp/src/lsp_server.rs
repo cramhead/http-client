@@ -152,8 +152,8 @@ impl LanguageServer for HttpLspServer {
                     title: format!("Send {} Request", request.method),
                     command: "http.sendRequest".to_string(),
                     arguments: Some(vec![
-                        serde_json::to_value(&uri.to_string()).unwrap(),
-                        serde_json::to_value(request.line_number).unwrap(),
+                        serde_json::to_value(&uri.to_string()).expect("Failed to serialize URI string"),
+                        serde_json::to_value(request.line_number).expect("Failed to serialize line number"),
                     ]),
                 }),
                 is_preferred: Some(true),
@@ -222,8 +222,8 @@ impl LanguageServer for HttpLspServer {
                     title: format!("▶ Send {} Request", request.method),
                     command: "http.sendRequest".to_string(),
                     arguments: Some(vec![
-                        serde_json::to_value(&uri.to_string()).unwrap(),
-                        serde_json::to_value(request.line_number).unwrap(),
+                        serde_json::to_value(&uri.to_string()).expect("Failed to serialize URI string"),
+                        serde_json::to_value(request.line_number).expect("Failed to serialize line number"),
                     ]),
                 }),
                 data: None,
@@ -245,7 +245,15 @@ impl LanguageServer for HttpLspServer {
                 let uri_str = args[0].as_str().unwrap_or("");
                 let line_number: usize = args[1].as_u64().unwrap_or(0) as usize;
 
-                let uri = Url::parse(uri_str).unwrap();
+                let uri = match Url::parse(uri_str) {
+                    Ok(u) => u,
+                    Err(e) => {
+                        self.client
+                            .log_message(MessageType::ERROR, format!("Invalid URI: {}", e))
+                            .await;
+                        return Ok(None);
+                    }
+                };
 
                 let document_map = self.document_map.lock().await;
                 let content = match document_map.get(&uri) {
@@ -341,7 +349,7 @@ impl LanguageServer for HttpLspServer {
                                 }
                             }
 
-                            return Ok(Some(serde_json::to_value(response.summary()).unwrap()));
+                            return Ok(Some(serde_json::to_value(response.summary()).expect("Failed to serialize response summary")));
                         }
                         Err(e) => {
                             self.client
@@ -576,8 +584,13 @@ mod tests {
         let output = server.format_response_output(&request, &response);
 
         // Verify the structure
-        assert!(output.find("### REQUEST ###").unwrap() < output.find("### RESPONSE ###").unwrap());
-        assert!(output.find("GET http://example.com/api").unwrap() < output.find("HTTP/1.1 200 OK").unwrap());
+        let request_pos = output.find("### REQUEST ###").expect("REQUEST section not found");
+        let response_pos = output.find("### RESPONSE ###").expect("RESPONSE section not found");
+        assert!(request_pos < response_pos);
+
+        let get_pos = output.find("GET http://example.com/api").expect("GET request not found");
+        let status_pos = output.find("HTTP/1.1 200 OK").expect("Status line not found");
+        assert!(get_pos < status_pos);
     }
 
     #[test]

@@ -257,8 +257,8 @@ Content-Type: application/json
 
         // Verify line numbers match actual positions
         let lines: Vec<&str> = content.lines().collect();
-        let first_get_line = lines.iter().position(|l| l.trim().starts_with("GET")).unwrap();
-        let first_post_line = lines.iter().position(|l| l.trim().starts_with("POST")).unwrap();
+        let first_get_line = lines.iter().position(|l| l.trim().starts_with("GET")).expect("GET line not found");
+        let first_post_line = lines.iter().position(|l| l.trim().starts_with("POST")).expect("POST line not found");
         assert_eq!(requests[0].line_number, first_get_line);
         assert_eq!(requests[1].line_number, first_post_line);
     }
@@ -343,8 +343,8 @@ POST http://example.com/api/2"#;
         // Line numbers are 0-indexed based on how parser stores them
         // Line 0: comment, Line 1: empty, Line 2: GET but stored as index
         let lines: Vec<&str> = content.lines().collect();
-        let first_get_line = lines.iter().position(|l| l.trim().starts_with("GET")).unwrap();
-        let first_post_line = lines.iter().position(|l| l.trim().starts_with("POST")).unwrap();
+        let first_get_line = lines.iter().position(|l| l.trim().starts_with("GET")).expect("GET line not found");
+        let first_post_line = lines.iter().position(|l| l.trim().starts_with("POST")).expect("POST line not found");
 
         assert_eq!(requests[0].line_number, first_get_line);
         assert_eq!(requests[1].line_number, first_post_line);
@@ -390,9 +390,9 @@ DELETE http://example.com/api/3"#;
 
         // Verify line numbers
         let lines: Vec<&str> = content.lines().collect();
-        assert_eq!(requests[0].line_number, lines.iter().position(|l| l.trim().starts_with("GET")).unwrap());
-        assert_eq!(requests[1].line_number, lines.iter().position(|l| l.trim().starts_with("POST")).unwrap());
-        assert_eq!(requests[2].line_number, lines.iter().position(|l| l.trim().starts_with("DELETE")).unwrap());
+        assert_eq!(requests[0].line_number, lines.iter().position(|l| l.trim().starts_with("GET")).expect("GET line not found"));
+        assert_eq!(requests[1].line_number, lines.iter().position(|l| l.trim().starts_with("POST")).expect("POST line not found"));
+        assert_eq!(requests[2].line_number, lines.iter().position(|l| l.trim().starts_with("DELETE")).expect("DELETE line not found"));
     }
 
     // URL Validation Tests
@@ -406,7 +406,7 @@ DELETE http://example.com/api/3"#;
     fn test_validate_url_accepts_valid_http_urls(#[case] url: &str) {
         let result = validate_url(url);
         assert!(result.is_ok(), "Expected '{}' to be valid, got: {:?}", url, result);
-        assert_eq!(result.unwrap(), url);
+        assert_eq!(result.expect("URL validation should succeed"), url);
     }
 
     #[rstest]

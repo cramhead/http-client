@@ -1,0 +1,8 @@
+# Clippy configuration for http-client project
+# Enforce stricter linting rules
+
+# Deny unwrap() calls - use expect() with a message or proper error handling
+disallowed-methods = [
+    { path = "std::option::Option::unwrap", reason = "Use expect() with a message or proper error handling" },
+    { path = "std::result::Result::unwrap", reason = "Use expect() with a message or proper error handling" },
+]
