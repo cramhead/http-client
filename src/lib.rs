@@ -74,6 +74,9 @@ fn ensure_binary_cached(
         return Ok(binary_path);
     }
 
+    // Create bin directory if it doesn't exist
+    fs::create_dir_all("bin").map_err(|e| format!("Failed to create bin directory: {}", e))?;
+
     // Download the binary
     download_and_cache_binary(language_server_id, binary_name, &binary_path)
 }
