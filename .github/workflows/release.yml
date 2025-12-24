@@ -42,13 +42,18 @@ jobs:
         with:
           targets: ${{ matrix.platform.target }}
 
-      - name: Install cross-compilation tools (Linux ARM64)
+      - name: Install cross for ARM cross-compilation
         if: matrix.platform.target == 'aarch64-unknown-linux-gnu'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+          cargo install cross --git https://github.com/cross-rs/cross
 
-      - name: Build LSP binary
+      - name: Build LSP binary (cross-compilation)
+        if: matrix.platform.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          cross build --release --target ${{ matrix.platform.target }} -p http-lsp
+
+      - name: Build LSP binary (native)
+        if: matrix.platform.target != 'aarch64-unknown-linux-gnu'
         run: |
           cargo build --release --target ${{ matrix.platform.target }} -p http-lsp
 
