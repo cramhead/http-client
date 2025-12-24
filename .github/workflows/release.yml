@@ -49,19 +49,18 @@ jobs:
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
       - name: Build LSP binary
-        working-directory: lsp
         run: |
-          cargo build --release --target ${{ matrix.platform.target }}
+          cargo build --release --target ${{ matrix.platform.target }} -p http-lsp
 
       - name: Rename binary (Unix)
         if: matrix.platform.os != 'windows-latest'
         run: |
-          cp lsp/target/${{ matrix.platform.target }}/release/http-lsp ${{ matrix.platform.binary }}
+          cp target/${{ matrix.platform.target }}/release/http-lsp ${{ matrix.platform.binary }}
 
       - name: Rename binary (Windows)
         if: matrix.platform.os == 'windows-latest'
         run: |
-          cp lsp/target/${{ matrix.platform.target }}/release/http-lsp.exe ${{ matrix.platform.binary }}
+          cp target/${{ matrix.platform.target }}/release/http-lsp.exe ${{ matrix.platform.binary }}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
