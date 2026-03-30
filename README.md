@@ -8,7 +8,7 @@ A Zed editor extension that enables sending HTTP requests to APIs directly from 
 ## Features
 
 - 🚀 **Send HTTP requests** directly from `.http` files in Zed
-- 🎨 **Syntax highlighting** for HTTP request files
+- 🎨 **Syntax highlighting** for HTTP request files (provided by the [HTTP](https://github.com/zed-industries/zed/tree/main/extensions/http) plugin)
 - 📝 **Support for all HTTP methods** (GET, POST, PUT, DELETE, PATCH, etc.)
 - 🔧 **Headers and request bodies** with JSON, XML, and other formats
 - 📊 **Response viewer** with formatted output

@@ -7,11 +7,3 @@ authors = ["Marc d'Entremont <cramhead@gmail.com>"]
 description = "Sends HTTP requests to APIs. Syntax highlights files with a .http extension. Provides code actions so that requests can be executed. Shows the results of the request in a http-responses.http file"
 repository = "https://github.com/cramhead/http-client"
 
-
-[language_servers.http-lsp]
-name = "HTTP LSP"
-language = "http"
-
-[grammars.http]
-repository = "https://github.com/rest-nvim/tree-sitter-http"
-commit = "e061995f0caf2fa30f68fa1fdf2c08bcbd4629a8"
